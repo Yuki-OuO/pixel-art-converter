@@ -1,0 +1,502 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>像素畫轉換工具</title>
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --panel: #1a1a24;
+      --panel2: #22222f;
+      --accent: #7c5cfc;
+      --accent2: #e040fb;
+      --text: #e8e8f0;
+      --text2: #9090b0;
+      --border: #2e2e42;
+      --success: #4caf8a;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 4px 24px rgba(124,92,252,0.4);
+    }
+    header .icon { font-size: 32px; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5)); }
+    header h1 { font-size: 22px; font-weight: 700; letter-spacing: 1px; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    header p { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+    .main { display: flex; flex: 1; gap: 0; }
+    .sidebar {
+      width: 300px; min-width: 260px;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      padding: 20px 18px;
+      display: flex; flex-direction: column; gap: 20px;
+      overflow-y: auto;
+    }
+    .section-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--text2); margin-bottom: 10px;
+    }
+    .upload-zone {
+      border: 2px dashed var(--border); border-radius: var(--radius);
+      padding: 24px 16px; text-align: center; cursor: pointer;
+      transition: all 0.2s; background: var(--panel2); position: relative;
+    }
+    .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: rgba(124,92,252,0.08); }
+    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-zone .upload-icon { font-size: 32px; margin-bottom: 8px; }
+    .upload-zone p { font-size: 13px; color: var(--text2); line-height: 1.5; }
+    .upload-zone strong { color: var(--accent); }
+    .control-group { display: flex; flex-direction: column; gap: 14px; }
+    .control-item label { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+    .control-item label span.val {
+      color: var(--text); font-weight: 600; font-size: 14px;
+      background: var(--panel2); padding: 2px 10px; border-radius: 20px;
+      border: 1px solid var(--border); min-width: 48px; text-align: center;
+    }
+    input[type="range"] {
+      -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px;
+      background: var(--panel2); outline: none; cursor: pointer; border: 1px solid var(--border);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      cursor: pointer; box-shadow: 0 2px 8px rgba(124,92,252,0.5);
+    }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--text2); }
+    .toggle { position: relative; width: 40px; height: 22px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track { position: absolute; inset: 0; border-radius: 11px; background: var(--panel2); border: 1px solid var(--border); cursor: pointer; transition: background 0.2s; }
+    .toggle input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
+    .toggle-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--text); transition: transform 0.2s; }
+    .toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+    select {
+      width: 100%; background: var(--panel2); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
+      font-size: 13px; outline: none; cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%239090b0' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center;
+    }
+    .palette-preview { display: flex; flex-wrap: wrap; gap: 4px; min-height: 24px; }
+    .palette-swatch { width: 20px; height: 20px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); }
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 11px 18px; border: none; border-radius: 8px; font-size: 14px;
+      font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white; box-shadow: 0 4px 16px rgba(124,92,252,0.4);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,92,252,0.6); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-download {
+      background: linear-gradient(135deg, #4caf8a, #38b27a);
+      color: white; box-shadow: 0 4px 16px rgba(76,175,138,0.4); width: 100%;
+    }
+    .btn-download:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(76,175,138,0.6); }
+    .btn-download:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-row { display: flex; gap: 8px; }
+    .btn-row .btn { flex: 1; }
+    .preview-area { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
+    .preview-toolbar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--border);
+    }
+    .preview-toolbar .tab-btn {
+      background: none; border: 1px solid transparent; color: var(--text2);
+      padding: 6px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s;
+    }
+    .preview-toolbar .tab-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(124,92,252,0.1); }
+    .preview-toolbar .spacer { flex: 1; }
+    .info-badge { font-size: 12px; color: var(--text2); background: var(--panel2); padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border); }
+    .canvas-wrap {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      overflow: auto; padding: 24px; position: relative;
+    }
+    .canvas-wrap.checker {
+      background-image: linear-gradient(45deg,#1e1e2e 25%,transparent 25%),linear-gradient(-45deg,#1e1e2e 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#1e1e2e 75%),linear-gradient(-45deg,transparent 75%,#1e1e2e 75%);
+      background-size: 20px 20px;
+      background-position: 0 0,0 10px,10px -10px,-10px 0px;
+    }
+    canvas { max-width: 100%; max-height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; border-radius: 4px; box-shadow: 0 8px 48px rgba(0,0,0,0.6); }
+    .placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--text2); text-align: center; }
+    .placeholder .ph-icon { font-size: 72px; opacity: 0.3; }
+    .placeholder h3 { font-size: 18px; opacity: 0.6; }
+    .placeholder p { font-size: 13px; opacity: 0.4; max-width: 280px; line-height: 1.6; }
+    .progress-overlay {
+      display: none; position: absolute; inset: 0; background: rgba(15,15,19,0.8);
+      align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+      backdrop-filter: blur(4px); z-index: 10;
+    }
+    .progress-overlay.active { display: flex; }
+    .spinner { width: 44px; height: 44px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .progress-text { font-size: 14px; color: var(--text2); }
+    .status-bar { padding: 8px 20px; background: var(--panel); border-top: 1px solid var(--border); font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 8px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text2); }
+    .status-dot.ok { background: #4caf8a; }
+    .status-dot.busy { background: var(--accent2); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .divider { border: none; border-top: 1px solid var(--border); }
+    .preset-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .preset-btn { background: var(--panel2); border: 1px solid var(--border); color: var(--text2); padding: 4px 10px; border-radius: 20px; font-size: 11px; cursor: pointer; transition: all 0.15s; }
+    .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+    @media (max-width: 700px) { .main { flex-direction: column; } .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="icon">&#127912;</div>
+  <div>
+    <h1>&#20687;&#32032;&#30059;&#36681;&#25442;&#24037;&#20855;</h1>
+    <p>&#19978;&#20傳&#22294;&#29255;&#65292;&#21363;&#26178;&#36681;&#25442;&#28858;&#20687;&#32032;&#39080;&#26684;&#85377;&#34899;</p>
+  </div>
+</header>
+<div class="main">
+  <aside class="sidebar">
+    <div>
+      <div class="section-title">&#128193; &#19978;&#20659;&#22294;&#29255;</div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept="image/*" />
+        <div class="upload-icon">&#128444;</div>
+        <p><strong>&#40635;&#25320;&#36984;&#25321;</strong>&#25110;&#25308;&#66197;&#22294;&#29255;&#21040;&#27492;&#34389;<br>&#25903;&#25588; JPG&#12289;PNG&#12289;WebP&#12289;GIF</p>
+      </div>
+    </div>
+    <hr class="divider" />
+    <div>
+      <div class="section-title">&#9881; &#20687;&#32032;&#35373;&#23450;</div>
+      <div class="control-group">
+        <div class="control-item">
+          <label>&#20687;&#32032;&#26684;&#23376;&#22823;&#23567; <span class="val" id="pixelSizeVal">8</span></label>
+          <input type="range" id="pixelSize" min="2" max="64" value="8" step="1" />
+        </div>
+        <div class="control-item">
+          <label>&#39069;&#33394;&#25976;&#37327; <span class="val" id="colorCountVal">16</span></label>
+          <input type="range" id="colorCount" min="2" max="256" value="16" step="1" />
+        </div>
+      </div>
+    </div>
+    <hr class="divider" />
+    <div>
+      <div class="section-title">&#128208; &#36013;&#20986;&#35299;&#26131;&#24230;</div>
+      <div class="control-group">
+        <div class="control-item">
+          <label>&#32531;&#25918;&#20493;&#25976; <span class="val" id="scaleVal">1&#215;</span></label>
+          <input type="range" id="scale" min="1" max="16" value="1" step="1" />
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:6px">&#35299;&#26131;&#24230;&#39044;&#35373;</div>
+          <div class="preset-row">
+            <button class="preset-btn" data-scale="1">&#21407;&#22987;</button>
+            <button class="preset-btn" data-scale="2">2&#215;</button>
+            <button class="preset-btn" data-scale="4">4&#215;</button>
+            <button class="preset-btn" data-scale="8">8&#215;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr class="divider" />
+    <div>
+      <div class="section-title">&#127917; &#39118;&#26684;&#36984;&#39033;</div>
+      <div class="control-group">
+        <div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:6px">&#35519;&#33394;&#30436;&#39044;&#35373;</div>
+          <select id="palettePreset">
+            <option value="auto">&#33258;&#21205;&#25277;&#33394;&#65288;&#37327;&#21270;&#65289;</option>
+            <option value="gameboy">Game Boy&#65288;4&#33394;&#65289;</option>
+            <option value="nes">NES &#24072;&#21010;&#65288;52&#33394;&#65289;</option>
+            <option value="cga">CGA &#38651;&#33165;&#65288;16&#33394;&#65289;</option>
+            <option value="mono">&#32020;&#40657;&#30333;</option>
+            <option value="earth">&#22823;&#22320;&#33394;&#31995;</option>
+            <option value="neon">&#38939;&#34389;&#39118;&#26684;</option>
+          </select>
+        </div>
+        <div class="toggle-row">
+          <span>&#39165;&#31034;&#20687;&#32032;&#26684;&#32218;</span>
+          <label class="toggle"><input type="checkbox" id="showGrid" /><div class="toggle-track"></div></label>
+        </div>
+        <div class="toggle-row">
+          <span>&#20445;&#30041;&#36879;&#26126;&#32283;&#26223;</span>
+          <label class="toggle"><input type="checkbox" id="keepAlpha" checked /><div class="toggle-track"></div></label>
+        </div>
+        <div class="toggle-row">
+          <span>&#26827;&#30424;&#26684;&#32283;&#26223;&#39044;&#35227;</span>
+          <label class="toggle"><input type="checkbox" id="checkerBg" checked /><div class="toggle-track"></div></label>
+        </div>
+      </div>
+    </div>
+    <hr class="divider" />
+    <div>
+      <div class="section-title">&#127912; &#30446;&#21069;&#35519;&#33394;&#30436;</div>
+      <div class="palette-preview" id="palettePreview"><span style="font-size:12px;color:var(--text2)">&#65288;&#36681;&#25442;&#24460;&#39165;&#31034;&#65289;</span></div>
+    </div>
+    <hr class="divider" />
+    <div class="control-group">
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="resetBtn" disabled>&#8634; &#37325;&#35373;</button>
+        <button class="btn btn-primary" id="convertBtn" disabled>&#9889; &#31435;&#21363;&#36681;&#25442;</button>
+      </div>
+      <button class="btn btn-download" id="downloadBtn" disabled>&#8681; &#19979;&#36617; PNG&#65288;&#36879;&#26126;&#32283;&#26223;&#65289;</button>
+    </div>
+  </aside>
+  <div class="preview-area">
+    <div class="preview-toolbar">
+      <button class="tab-btn active" id="tabPixel" data-tab="pixel">&#20687;&#32032;&#39044;&#35227;</button>
+      <button class="tab-btn" id="tabOriginal" data-tab="original">&#21407;&#22987;&#22294;&#29255;</button>
+      <div class="spacer"></div>
+      <div class="info-badge" id="sizeInfo">&#8212;</div>
+    </div>
+    <div class="canvas-wrap checker" id="canvasWrap">
+      <div class="placeholder" id="placeholder">
+        <div class="ph-icon">&#128444;</div>
+        <h3>&#23609;&#26410;&#19978;&#20659;&#22294;&#29255;</h3>
+        <p>&#35531;&#22312;&#24038;&#20491;&#19978;&#20659;&#22294;&#29255;&#65292;&#24037;&#20855;&#23559;&#33258;&#21205;&#36681;&#25442;&#25104;&#20687;&#32032;&#30059;&#39118;&#26684;</p>
+      </div>
+      <canvas id="pixelCanvas" style="display:none"></canvas>
+      <canvas id="originalCanvas" style="display:none"></canvas>
+      <div class="progress-overlay" id="progressOverlay">
+        <div class="spinner"></div>
+        <div class="progress-text" id="progressText">&#34389;&#29702;&#20013;&#8230;</div>
+      </div>
+    </div>
+    <div class="status-bar">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">&#31561;&#24453;&#19978;&#20659;&#22294;&#29255;</span>
+    </div>
+  </div>
+</div>
+<script>
+var originalImage=null,currentTab='pixel',debounceTimer=null;
+var fileInput=document.getElementById('fileInput'),uploadZone=document.getElementById('uploadZone');
+var pixelSizeSlider=document.getElementById('pixelSize'),pixelSizeVal=document.getElementById('pixelSizeVal');
+var colorCountSlider=document.getElementById('colorCount'),colorCountVal=document.getElementById('colorCountVal');
+var scaleSlider=document.getElementById('scale'),scaleVal=document.getElementById('scaleVal');
+var palettePreset=document.getElementById('palettePreset'),showGrid=document.getElementById('showGrid');
+var keepAlpha=document.getElementById('keepAlpha'),checkerBg=document.getElementById('checkerBg');
+var convertBtn=document.getElementById('convertBtn'),resetBtn=document.getElementById('resetBtn'),downloadBtn=document.getElementById('downloadBtn');
+var pixelCanvas=document.getElementById('pixelCanvas'),originalCanvas=document.getElementById('originalCanvas');
+var canvasWrap=document.getElementById('canvasWrap'),placeholder=document.getElementById('placeholder');
+var progressOverlay=document.getElementById('progressOverlay'),progressText=document.getElementById('progressText');
+var palettePreview=document.getElementById('palettePreview'),sizeInfo=document.getElementById('sizeInfo');
+var statusDot=document.getElementById('statusDot'),statusText=document.getElementById('statusText');
+
+var PALETTES={
+  gameboy:[[15,56,15],[48,98,48],[139,172,15],[155,188,15]],
+  nes:[[124,124,124],[0,0,252],[0,0,188],[68,40,188],[148,0,132],[168,0,32],[168,16,0],[136,20,0],[80,48,0],[0,120,0],[0,104,0],[0,88,0],[0,64,88],[0,0,0],[188,188,188],[0,120,248],[0,88,248],[104,68,252],[216,0,204],[228,0,88],[248,56,0],[228,92,16],[172,124,0],[0,184,0],[0,168,0],[0,168,68],[0,136,136],[248,248,248],[60,188,252],[104,136,252],[152,120,248],[248,120,248],[248,88,152],[248,120,88],[252,160,68],[248,184,0],[184,248,24],[88,216,84],[88,248,152],[0,232,216],[120,120,120],[252,252,252],[164,228,252],[184,184,248],[216,184,248],[248,184,248],[248,164,192],[240,208,176],[252,224,168],[248,216,120],[216,248,120],[184,248,184],[184,248,216]],
+  cga:[[0,0,0],[0,0,170],[0,170,0],[0,170,170],[170,0,0],[170,0,170],[170,85,0],[170,170,170],[85,85,85],[85,85,255],[85,255,85],[85,255,255],[255,85,85],[255,85,255],[255,255,85],[255,255,255]],
+  mono:[[0,0,0],[255,255,255]],
+  earth:[[30,20,10],[60,40,20],[90,60,30],[120,80,40],[150,100,50],[180,130,80],[210,170,120],[240,210,160],[200,150,100],[160,110,70],[80,100,60],[120,140,80],[160,180,100],[100,80,60],[140,110,80]],
+  neon:[[0,0,0],[255,0,128],[0,255,128],[255,255,0],[0,128,255],[255,128,0],[128,0,255],[0,255,255],[255,0,255],[255,255,255],[128,255,0],[0,0,255],[255,64,0],[0,255,64],[64,0,255],[255,0,64]]
+};
+
+function setStatus(msg,state){statusText.textContent=msg;statusDot.className='status-dot'+(state?' '+state:'');}
+function showProgress(msg){progressText.textContent=msg||'Processing...';progressOverlay.classList.add('active');}
+function hideProgress(){progressOverlay.classList.remove('active');}
+function colorDist(r1,g1,b1,r2,g2,b2){var dr=r1-r2,dg=g1-g2,db=b1-b2;return dr*dr+dg*dg+db*db;}
+
+function quantizeColors(pixels,maxColors){
+  var opaque=pixels.filter(function(p){return p[3]>128;});
+  if(opaque.length===0)return[[0,0,0]];
+  function medianCut(px,depth){
+    if(depth===0||px.length===0){
+      var r=0,g=0,b=0;
+      px.forEach(function(p){r+=p[0];g+=p[1];b+=p[2];});
+      var n=px.length||1;
+      return[[Math.round(r/n),Math.round(g/n),Math.round(b/n)]];
+    }
+    var minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0;
+    px.forEach(function(c){
+      if(c[0]<minR)minR=c[0];if(c[0]>maxR)maxR=c[0];
+      if(c[1]<minG)minG=c[1];if(c[1]>maxG)maxG=c[1];
+      if(c[2]<minB)minB=c[2];if(c[2]>maxB)maxB=c[2];
+    });
+    var rR=maxR-minR,rG=maxG-minG,rB=maxB-minB,ch;
+    if(rR>=rG&&rR>=rB)ch=0;else if(rG>=rB)ch=1;else ch=2;
+    px.sort(function(a,b){return a[ch]-b[ch];});
+    var mid=Math.floor(px.length/2);
+    return medianCut(px.slice(0,mid),depth-1).concat(medianCut(px.slice(mid),depth-1));
+  }
+  var depth=Math.ceil(Math.log2(maxColors));
+  return medianCut(opaque,depth).slice(0,maxColors);
+}
+
+function findNearestColor(r,g,b,palette){
+  var best=0,bestDist=Infinity;
+  for(var i=0;i<palette.length;i++){
+    var d=colorDist(r,g,b,palette[i][0],palette[i][1],palette[i][2]);
+    if(d<bestDist){bestDist=d;best=i;}
+  }
+  return palette[best];
+}
+
+async function pixelate(){
+  if(!originalImage)return;
+  showProgress('Analyzing image...');
+  setStatus('Processing...','busy');
+  await new Promise(function(r){setTimeout(r,10);});
+  var blockSize=parseInt(pixelSizeSlider.value);
+  var numColors=parseInt(colorCountSlider.value);
+  var outputScale=parseInt(scaleSlider.value);
+  var preset=palettePreset.value;
+  var grid=showGrid.checked;
+  var alpha=keepAlpha.checked;
+  var srcCanvas=document.createElement('canvas');
+  srcCanvas.width=originalImage.naturalWidth;
+  srcCanvas.height=originalImage.naturalHeight;
+  var srcCtx=srcCanvas.getContext('2d');
+  srcCtx.drawImage(originalImage,0,0);
+  var srcW=srcCanvas.width,srcH=srcCanvas.height;
+  var srcData=srcCtx.getImageData(0,0,srcW,srcH).data;
+  progressText.textContent='Quantizing colors...';
+  await new Promise(function(r){setTimeout(r,10);});
+  var blocksX=Math.ceil(srcW/blockSize),blocksY=Math.ceil(srcH/blockSize);
+  var blockColors=[];
+  for(var by=0;by<blocksY;by++){
+    for(var bx=0;bx<blocksX;bx++){
+      var r=0,g=0,b=0,a=0,cnt=0;
+      var x0=bx*blockSize,y0=by*blockSize;
+      var x1=Math.min(x0+blockSize,srcW),y1=Math.min(y0+blockSize,srcH);
+      for(var y=y0;y<y1;y++){for(var x=x0;x<x1;x++){var i=(y*srcW+x)*4;r+=srcData[i];g+=srcData[i+1];b+=srcData[i+2];a+=srcData[i+3];cnt++;}}
+      blockColors.push([Math.round(r/cnt),Math.round(g/cnt),Math.round(b/cnt),Math.round(a/cnt)]);
+    }
+  }
+  var palette;
+  if(preset==='auto'){palette=quantizeColors(blockColors,numColors);}
+  else{palette=PALETTES[preset]||quantizeColors(blockColors,numColors);}
+  progressText.textContent='Drawing pixels...';
+  await new Promise(function(r){setTimeout(r,10);});
+  var outW=srcW*outputScale,outH=srcH*outputScale,bs=blockSize*outputScale;
+  pixelCanvas.width=outW;pixelCanvas.height=outH;
+  var ctx=pixelCanvas.getContext('2d');
+  ctx.clearRect(0,0,outW,outH);
+  for(var by2=0;by2<blocksY;by2++){
+    for(var bx2=0;bx2<blocksX;bx2++){
+      var bc=blockColors[by2*blocksX+bx2];
+      var avgR=bc[0],avgG=bc[1],avgB2=bc[2],avgA2=bc[3];
+      var px=bx2*bs,py=by2*bs;
+      var pw=Math.min(bs,outW-px),ph=Math.min(bs,outH-py);
+      if(alpha&&avgA2<=128){continue;}
+      var nearest=findNearestColor(avgR,avgG,avgB2,palette);
+      var aVal=alpha?avgA2/255:1;
+      ctx.fillStyle='rgba('+nearest[0]+','+nearest[1]+','+nearest[2]+','+aVal+')';
+      ctx.fillRect(px,py,pw,ph);
+      if(grid){ctx.strokeStyle='rgba(0,0,0,0.25)';ctx.lineWidth=Math.max(1,outputScale*0.5);ctx.strokeRect(px+0.5,py+0.5,pw-1,ph-1);}
+    }
+  }
+  palettePreview.innerHTML='';
+  palette.forEach(function(c){
+    var sw=document.createElement('div');
+    sw.className='palette-swatch';
+    sw.style.background='rgb('+c[0]+','+c[1]+','+c[2]+')';
+    sw.title='rgb('+c[0]+','+c[1]+','+c[2]+')';
+    palettePreview.appendChild(sw);
+  });
+  sizeInfo.textContent=outW+' x '+outH+' px';
+  if(currentTab==='pixel'){pixelCanvas.style.display='';originalCanvas.style.display='none';}
+  downloadBtn.disabled=false;
+  hideProgress();
+  setStatus('Done! Output: '+outW+'x'+outH+' px, '+palette.length+' colors','ok');
+}
+
+function drawOriginal(){
+  if(!originalImage)return;
+  var scale=parseInt(scaleSlider.value);
+  originalCanvas.width=originalImage.naturalWidth*scale;
+  originalCanvas.height=originalImage.naturalHeight*scale;
+  var ctx=originalCanvas.getContext('2d');
+  ctx.drawImage(originalImage,0,0,originalCanvas.width,originalCanvas.height);
+}
+
+function loadImage(file){
+  if(!file||!file.type.startsWith('image/')){setStatus('Unsupported format','');return;}
+  var url=URL.createObjectURL(file);
+  var img=new Image();
+  img.onload=function(){
+    originalImage=img;
+    drawOriginal();
+    placeholder.style.display='none';
+    convertBtn.disabled=false;resetBtn.disabled=false;
+    setStatus('Loaded: '+file.name+' ('+img.naturalWidth+'x'+img.naturalHeight+')','ok');
+    pixelate();
+  };
+  img.onerror=function(){setStatus('Failed to load image','');};
+  img.src=url;
+}
+
+function scheduleConvert(){
+  if(!originalImage)return;
+  clearTimeout(debounceTimer);
+  debounceTimer=setTimeout(pixelate,300);
+}
+
+fileInput.addEventListener('change',function(e){if(e.target.files[0])loadImage(e.target.files[0]);});
+uploadZone.addEventListener('dragover',function(e){e.preventDefault();uploadZone.classList.add('drag-over');});
+uploadZone.addEventListener('dragleave',function(){uploadZone.classList.remove('drag-over');});
+uploadZone.addEventListener('drop',function(e){e.preventDefault();uploadZone.classList.remove('drag-over');if(e.dataTransfer.files[0])loadImage(e.dataTransfer.files[0]);});
+pixelSizeSlider.addEventListener('input',function(){pixelSizeVal.textContent=pixelSizeSlider.value;scheduleConvert();});
+colorCountSlider.addEventListener('input',function(){colorCountVal.textContent=colorCountSlider.value;scheduleConvert();});
+scaleSlider.addEventListener('input',function(){scaleVal.textContent=scaleSlider.value+'x';scheduleConvert();});
+palettePreset.addEventListener('change',scheduleConvert);
+showGrid.addEventListener('change',scheduleConvert);
+keepAlpha.addEventListener('change',scheduleConvert);
+checkerBg.addEventListener('change',function(){if(checkerBg.checked)canvasWrap.classList.add('checker');else canvasWrap.classList.remove('checker');});
+document.querySelectorAll('.preset-btn').forEach(function(btn){
+  btn.addEventListener('click',function(){scaleSlider.value=btn.dataset.scale;scaleVal.textContent=btn.dataset.scale+'x';scheduleConvert();});
+});
+convertBtn.addEventListener('click',pixelate);
+resetBtn.addEventListener('click',function(){
+  pixelSizeSlider.value=8;pixelSizeVal.textContent='8';
+  colorCountSlider.value=16;colorCountVal.textContent='16';
+  scaleSlider.value=1;scaleVal.textContent='1x';
+  palettePreset.value='auto';showGrid.checked=false;keepAlpha.checked=true;
+  scheduleConvert();
+});
+downloadBtn.addEventListener('click',function(){
+  var link=document.createElement('a');
+  link.download='pixel-art-'+Date.now()+'.png';
+  link.href=pixelCanvas.toDataURL('image/png');
+  link.click();
+  setStatus('Download started!','ok');
+});
+document.querySelectorAll('.tab-btn').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
+    currentTab=btn.dataset.tab;
+    if(currentTab==='pixel'){
+      pixelCanvas.style.display=pixelCanvas.width?'':'none';
+      originalCanvas.style.display='none';
+      placeholder.style.display=pixelCanvas.width?'none':'';
+    }else{
+      originalCanvas.style.display=originalImage?'':'none';
+      pixelCanvas.style.display='none';
+      placeholder.style.display=originalImage?'none':'';
+    }
+  });
+});
+document.addEventListener('paste',function(e){
+  var items=e.clipboardData&&e.clipboardData.items;
+  if(!items)return;
+  for(var i=0;i<items.length;i++){if(items[i].type.startsWith('image/')){loadImage(items[i].getAsFile());break;}}
+});
+</script>
+</body>
+</html>
